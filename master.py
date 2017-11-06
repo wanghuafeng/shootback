@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding=utf-8
 from common_func import *
-import queue
+import Queue
 import atexit
 
 _listening_sockets = []  # for close at exit
@@ -49,7 +49,7 @@ class Master:
 
         # a queue for customers who have connected to us,
         #   but not assigned a slaver yet
-        self.pending_customers = queue.Queue()
+        self.pending_customers = Queue.Queue()
 
         self.communicate_addr = communicate_addr
 
@@ -68,7 +68,7 @@ class Master:
             self.thread_pool["listen_slaver"] = threading.Thread(
                 target=self._listen_slaver,
                 name="listen_slaver-{}".format(_fmt_communicate_addr),
-                daemon=True,
+                # daemon=True,
             )
 
         # prepare Thread obj, not activated yet
@@ -76,28 +76,32 @@ class Master:
         self.thread_pool["listen_customer"] = threading.Thread(
             target=self._listen_customer,
             name="listen_customer-{}".format(_fmt_communicate_addr),
-            daemon=True,
+            # daemon=True,
         )
 
         # prepare Thread obj, not activated yet
         self.thread_pool["heart_beat_daemon"] = threading.Thread(
             target=self._heart_beat_daemon,
             name="heart_beat_daemon-{}".format(_fmt_communicate_addr),
-            daemon=True,
+            # daemon=True,
         )
 
         # prepare assign_slaver_daemon
         self.thread_pool["assign_slaver_daemon"] = threading.Thread(
             target=self._assign_slaver_daemon,
             name="assign_slaver_daemon-{}".format(_fmt_communicate_addr),
-            daemon=True,
+            # daemon=True,
         )
 
     def serve_forever(self):
         if not self.external_slaver:
+            self.thread_pool["listen_slaver"].daemon = True
             self.thread_pool["listen_slaver"].start()
+        self.thread_pool["heart_beat_daemon"].daemon = True
         self.thread_pool["heart_beat_daemon"].start()
+        self.thread_pool["listen_customer"].daemon = True
         self.thread_pool["listen_customer"].start()
+        self.thread_pool["assign_slaver_daemon"].daemon = True
         self.thread_pool["assign_slaver_daemon"].start()
         self.thread_pool["socket_bridge"] = self.socket_bridge.start_as_daemon()
 
@@ -182,7 +186,8 @@ class Master:
             addr_slaver = slaver["addr_slaver"]
 
             # ------------------ real heartbeat begin --------------------
-            start_time = time.perf_counter()
+            start_time = time.time()
+            # start_time = time.perf_counter()
             try:
                 hb_result = self._send_heartbeat(slaver["conn_slaver"])
             except Exception as e:
@@ -191,7 +196,7 @@ class Master:
                 log.debug(traceback.format_exc())
                 hb_result = False
             finally:
-                time_used = round((time.perf_counter() - start_time) * 1000.0, 2)
+                time_used = round((time.time() - start_time) * 1000.0, 2)
             # ------------------ real heartbeat end ----------------------
 
             if not hb_result:

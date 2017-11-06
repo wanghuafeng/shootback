@@ -130,7 +130,7 @@ class Slaver:
         addr_slaver = conn_slaver.getsockname()
         addr_master = conn_slaver.getpeername()
 
-        # --------- handling CtrlPkg until handshake ------------- 
+        # --------- handling CtrlPkg until handshake -------------
         try:
             hs = self._stage_ctrlpkg(conn_slaver)
         except Exception as e:
