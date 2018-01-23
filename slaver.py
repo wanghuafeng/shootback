@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # coding=utf-8
-from __future__ import print_function, unicode_literals, division, absolute_import
+
+from __future__ import print_function, unicode_literals, division
 
 from common_func import *
 
-__author__ = "Aploium <i@z.codes>"
-__website__ = "https://github.com/aploium/shootback"
-
+__author__ = ""
+__website__ = ""
 
 class Slaver:
     """
@@ -134,15 +134,14 @@ class Slaver:
         try:
             hs = self._stage_ctrlpkg(conn_slaver)
         except Exception as e:
-            log.warning("slaver{} waiting handshake failed {}".format(
+            log.error("slaver{} waiting handshake failed {}".format(
                 fmt_addr(addr_slaver), e))
-            log.debug(traceback.print_exc())
+
             hs = False
         else:
             if not hs:
-                log.warning("bad handshake or timeout between: {} and {}".format(
+                log.error("bad handshake or timeout between: {} and {}".format(
                     fmt_addr(addr_master), fmt_addr(addr_slaver)))
-
         if not hs:
             # handshake failed or timeout
             del self.spare_slaver_pool[addr_slaver]
@@ -182,7 +181,7 @@ class Slaver:
         )
 
         # this slaver thread exits here
-        return
+        return True
 
     def serve_forever(self):
         self.socket_bridge.start_as_daemon()  # hi, don't ignore me
@@ -193,7 +192,7 @@ class Slaver:
         #   until `max_err_delay`
         # would immediately decrease to 0 after a success connection
         err_delay = 0
-        max_err_delay = 15
+        max_err_delay = 5
         # spare_delay is sleep cycle if we are full of spare slaver
         #   would immediately decrease to 0 after a slaver lack
         spare_delay = 0.08
@@ -210,8 +209,7 @@ class Slaver:
             try:
                 conn_slaver = self._connect_master()
             except Exception as e:
-                log.warning("unable to connect master {}".format(e))
-                log.debug(traceback.format_exc())
+                log.warn("unable to connect master {}".format(e))
                 time.sleep(err_delay)
                 if err_delay < max_err_delay:
                     err_delay += 1
@@ -231,7 +229,6 @@ class Slaver:
                 ))
             except Exception as e:
                 log.error("unable create Thread: {}".format(e))
-                log.debug(traceback.format_exc())
                 time.sleep(err_delay)
 
                 if err_delay < max_err_delay:
@@ -243,7 +240,7 @@ class Slaver:
 
 
 def run_slaver(communicate_addr, target_addr, max_spare_count=5):
-    log.info("running as slaver, master addr: {} target: {}".format(
+    log.warn("running as slaver, master addr: {} target: {}".format(
         fmt_addr(communicate_addr), fmt_addr(target_addr)
     ))
 
@@ -281,17 +278,16 @@ Tips: ANY service using TCP is shootback-able.  HTTP/FTP/Proxy/SSH/VNC/...
     parser.add_argument("-t", "--target", required=True,
                         metavar="host:port",
                         help="where the traffic from master should be tunneled to, usually not public. eg: 10.1.2.3:80")
-    parser.add_argument("-k", "--secretkey", default="shootback",
+    parser.add_argument("-k", "--secretkey", default="huafeng",
                         help="secretkey to identity master and slaver, should be set to the same value in both side")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                         help="verbose output")
     parser.add_argument("-q", "--quiet", action="count", default=0,
                         help="quiet output, only display warning and errors, use two to disable output")
-    parser.add_argument("-V", "--version", action="version", version="shootback {}-slaver".format(version_info()))
     parser.add_argument("--ttl", default=300, type=int, dest="SPARE_SLAVER_TTL",
                         help="standing-by slaver's TTL, default is 300. "
                              "this value is optimized for most cases")
-    parser.add_argument("--max-standby", default=5, type=int, dest="max_spare_count",
+    parser.add_argument("--max-standby", default=1, type=int, dest="max_spare_count",
                         help="max standby slaver TCP connections count, default is 5. "
                              "which is enough for more than 800 concurrency. "
                              "while working connections are always unlimited")
@@ -326,16 +322,7 @@ def main_slaver():
             level = logging.INFO
         configure_logging(level)
 
-    log.info("shootback {} slaver running".format(version_info()))
-    log.info("author: {}  site: {}".format(__author__, __website__))
-    log.info("Master: {}".format(fmt_addr(communicate_addr)))
-    log.info("Target: {}".format(fmt_addr(target_addr)))
-
-    # communicate_addr = ("localhost", 12345)
-    # target_addr = ("93.184.216.34", 80)  # www.example.com
-
     run_slaver(communicate_addr, target_addr, max_spare_count=max_spare_count)
-
 
 if __name__ == '__main__':
     main_slaver()

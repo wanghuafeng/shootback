@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # coding=utf-8
 from common_func import *
-import Queue
+import queue
 import atexit
 
 _listening_sockets = []  # for close at exit
-__author__ = "Aploium <i@z.codes>"
-__website__ = "https://github.com/aploium/shootback"
 
 
 @atexit.register
@@ -20,13 +18,13 @@ def close_listening_socket_at_exit():
 def try_bind_port(sock, addr):
     while True:
         try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(addr)
         except Exception as e:
             log.error(("unable to bind {}, {}. If this port was used by the recently-closed shootback itself\n"
                        "then don't worry, it would be available in several seconds\n"
                        "we'll keep trying....").format(addr, e))
-            log.debug(traceback.format_exc())
-            time.sleep(3)
+            time.sleep(1)
         else:
             break
 
@@ -49,7 +47,7 @@ class Master:
 
         # a queue for customers who have connected to us,
         #   but not assigned a slaver yet
-        self.pending_customers = Queue.Queue()
+        self.pending_customers = queue.Queue()
 
         self.communicate_addr = communicate_addr
 
@@ -68,7 +66,7 @@ class Master:
             self.thread_pool["listen_slaver"] = threading.Thread(
                 target=self._listen_slaver,
                 name="listen_slaver-{}".format(_fmt_communicate_addr),
-                # daemon=True,
+                daemon=True,
             )
 
         # prepare Thread obj, not activated yet
@@ -76,32 +74,28 @@ class Master:
         self.thread_pool["listen_customer"] = threading.Thread(
             target=self._listen_customer,
             name="listen_customer-{}".format(_fmt_communicate_addr),
-            # daemon=True,
+            daemon=True,
         )
 
         # prepare Thread obj, not activated yet
         self.thread_pool["heart_beat_daemon"] = threading.Thread(
             target=self._heart_beat_daemon,
             name="heart_beat_daemon-{}".format(_fmt_communicate_addr),
-            # daemon=True,
+            daemon=True,
         )
 
         # prepare assign_slaver_daemon
         self.thread_pool["assign_slaver_daemon"] = threading.Thread(
             target=self._assign_slaver_daemon,
             name="assign_slaver_daemon-{}".format(_fmt_communicate_addr),
-            # daemon=True,
+            daemon=True,
         )
 
     def serve_forever(self):
         if not self.external_slaver:
-            self.thread_pool["listen_slaver"].daemon = True
             self.thread_pool["listen_slaver"].start()
-        self.thread_pool["heart_beat_daemon"].daemon = True
         self.thread_pool["heart_beat_daemon"].start()
-        self.thread_pool["listen_customer"].daemon = True
         self.thread_pool["listen_customer"].start()
-        self.thread_pool["assign_slaver_daemon"].daemon = True
         self.thread_pool["assign_slaver_daemon"].start()
         self.thread_pool["socket_bridge"] = self.socket_bridge.start_as_daemon()
 
@@ -186,17 +180,15 @@ class Master:
             addr_slaver = slaver["addr_slaver"]
 
             # ------------------ real heartbeat begin --------------------
-            start_time = time.time()
-            # start_time = time.perf_counter()
+            start_time = time.perf_counter()
             try:
                 hb_result = self._send_heartbeat(slaver["conn_slaver"])
             except Exception as e:
                 log.warning("error during heartbeat to {}: {}".format(
                     fmt_addr(addr_slaver), e))
-                log.debug(traceback.format_exc())
                 hb_result = False
             finally:
-                time_used = round((time.time() - start_time) * 1000.0, 2)
+                time_used = round((time.perf_counter() - start_time) * 1000.0, 2)
             # ------------------ real heartbeat end ----------------------
 
             if not hb_result:
@@ -266,7 +258,6 @@ class Master:
                 hs = self._handshake(conn_slaver)
             except Exception as e:
                 log.warning("Handshake failed: {}".format(e))
-                log.debug(traceback.format_exc())
                 hs = False
 
             if hs:
@@ -328,7 +319,7 @@ class Master:
     def _listen_customer(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try_bind_port(sock, self.customer_listen_addr)
-        sock.listen(20)
+        sock.listen(40)
         _listening_sockets.append(sock)
         log.info("Listening for customers: {}".format(
             fmt_addr(self.customer_listen_addr)))
@@ -346,7 +337,6 @@ class Master:
 
 def run_master(communicate_addr, customer_listen_addr):
     log.info("shootback {} running as master".format(version_info()))
-    log.info("author: {}  site: {}".format(__author__, __website__))
     log.info("slaver from: {} customer from: {}".format(
         fmt_addr(communicate_addr), fmt_addr(customer_listen_addr)))
 
@@ -384,7 +374,7 @@ Tips: ANY service using TCP is shootback-able.  HTTP/FTP/Proxy/SSH/VNC/...
     parser.add_argument("-c", "--customer", required=True,
                         metavar="host:port",
                         help="listening for customers, 3rd party program connects here  eg: 10.1.2.3:10022")
-    parser.add_argument("-k", "--secretkey", default="shootback",
+    parser.add_argument("-k", "--secretkey", default="huafeng",
                         help="secretkey to identity master and slaver, should be set to the same value in both side")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                         help="verbose output")

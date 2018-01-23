@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 from __future__ import print_function, unicode_literals, division, absolute_import
+import os
 import sys
 import time
 import binascii
@@ -23,7 +24,7 @@ except:
 RECV_BUFFER_SIZE = 2 ** 14
 
 # default secretkey, use -k/--secretkey to change
-SECRET_KEY = "shootback"
+SECRET_KEY = "huafeng"
 
 # how long a SPARE slaver would keep
 # once slaver received an heart-beat package from master,
@@ -39,9 +40,11 @@ INTERNAL_VERSION = 0x000D
 # version for human readable
 __version__ = (2, 2, 8, INTERNAL_VERSION)
 
+CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
+log_file = os.path.join(CURRENT_DIR, './nat.log')
+
 # just a logger
 log = logging.getLogger(__name__)
-
 
 def version_info():
     """get program version for human. eg: "2.1.0-r2" """
@@ -52,6 +55,7 @@ def configure_logging(level):
     logging.basicConfig(
         level=level,
         format='[%(levelname)s %(asctime)s] %(message)s',
+        filename=log_file   # './nat.log'
     )
 
 
